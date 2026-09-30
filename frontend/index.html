@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemelo Digital Planta 2 - Vista GIS (Light)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        /* --- TEMA OSCURO PARA EL PANEL --- */
+        :root {
+            --bg-dark: #0b1121;
+            --panel-bg: rgba(30, 41, 59, 0.95);
+            --text-main: #e2e8f0;
+            --text-muted: #94a3b8;
+            --accent: #0ea5e9;
+            --danger: #f43f5e;
+            --success: #10b981;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: 'Roboto', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            overflow: hidden;
+        }
+
+        /* CABECERA */
+        .header-title {
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 30px;
+            background-color: #0f172a;
+            border-bottom: 1px solid #334155;
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--text-main);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            z-index: 20;
+            position: relative;
+        }
+
+        .header-title i { margin-right: 10px; color: var(--accent); }
+
+        /* GRID */
+        .main-container {
+            display: grid;
+            grid-template-columns: 7fr 3fr;
+            height: calc(100vh - 80px); 
+            gap: 20px;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        /* --- SECCIÓN MAPA --- */
+        .map-section {
+            background-color: #e2e8f0; 
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.1);
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 0 20px rgba(0,0,0,0.3);
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* SIDEBAR */
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            height: 100%;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+
+        /* SCROLLBAR */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+
+        /* SENSORES */
+        .sensors-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr; 
+            gap: 12px;
+            flex-shrink: 0;
+        }
+
+        .sensor-card {
+            background: linear-gradient(145deg, rgba(30,41,59,1), rgba(15,23,42,1));
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.05);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .sensor-card::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+        }
+
+        .sensor-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 5px;
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .sensor-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--text-main);
+            text-shadow: 0 0 15px rgba(255,255,255,0.1);
+            margin: 5px 0;
+        }
+
+        .sensor-unit {
+            font-size: 0.8rem;
+            color: var(--accent);
+            font-weight: bold;
+        }
+
+        /* ALERTAS */
+        .last-alert-panel {
+            background-color: rgba(30, 41, 59, 1);
+            border-radius: 12px;
+            padding: 15px;
+            border-left: 4px solid var(--success);
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+
+        .alert-header {
+            font-size: 0.7rem;
+            font-weight: bold;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .alert-body {
+            font-size: 1rem;
+            font-weight: 500;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* CHAT */
+        .chat-panel {
+            background-color: rgba(30, 41, 59, 1);
+            border-radius: 12px;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid rgba(255,255,255,0.05);
+            overflow: hidden;
+            min-height: 360px;
+        }
+
+        .chat-header {
+            background-color: rgba(15, 23, 42, 0.9);
+            padding: 12px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        /* ===== Chat estilo burbujas ===== */
+        #chat-messages{
+            flex-grow: 1;
+            padding: 12px;
+            overflow-y: auto;
+            background: rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .chat-input-row{
+            display: flex;
+            gap: 10px;
+            padding: 12px;
+            border-top: 1px solid rgba(255,255,255,0.06);
+            background: rgba(15,23,42,0.65);
+        }
+
+        #chat-input{
+            flex: 1;
+            background: rgba(0,0,0,0.25);
+            border: 1px solid rgba(255,255,255,0.08);
+            color: var(--text-main);
+            border-radius: 10px;
+            padding: 10px 12px;
+            outline: none;
+        }
+
+        #chat-send{
+            background: var(--accent);
+            border: none;
+            color: #001018;
+            font-weight: 700;
+            border-radius: 10px;
+            padding: 0 16px;
+            cursor: pointer;
+        }
+
+        .chat-msg{
+            max-width: 85%;
+            padding: 10px 12px;
+            border-radius: 14px;
+            line-height: 1.25;
+            white-space: pre-wrap;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+        }
+
+        .chat-msg.user{
+            align-self: flex-end;
+            background: rgba(14,165,233,0.20);
+            border: 1px solid rgba(14,165,233,0.35);
+        }
+
+        .chat-msg.bot{
+            align-self: flex-start;
+            background: rgba(148,163,184,0.10);
+            border: 1px solid rgba(148,163,184,0.18);
+        }
+
+        .status-dot {
+            width: 10px; height: 10px; 
+            border-radius: 50%; 
+            background-color: var(--success);
+            display: inline-block;
+            box-shadow: 0 0 10px var(--success);
+        }
+
+        /* Personalización del Popup del mapa */
+        .leaflet-popup-content-wrapper {
+            background: #1e293b;
+            color: #f1f5f9;
+            border-radius: 8px;
+            border: 1px solid #334155;
+        }
+        .leaflet-popup-tip { background: #1e293b; }
+
+    </style>
+</head>
+<body>
+
+    <header class="header-title">
+        <div><i class="fa-solid fa-map-location-dot"></i> GEMELO DIGITAL <span style="color:var(--accent)">OFICINA</span></div>
+        <div style="font-size: 0.8rem; font-weight: normal; color: var(--text-muted);">
+            <i class="fa-regular fa-clock"></i> <span id="reloj">--:--</span>
+        </div>
+    </header>
+
+    <div class="main-container">
+        
+        <div class="map-section">
+            <div id="map"></div>
+        </div>
+
+        <div class="sidebar">
+            
+            <div class="sensors-grid">
+                <div class="sensor-card">
+                    <div class="sensor-header"><i class="fa-solid fa-temperature-half"></i> Temp</div>
+                    <div class="sensor-value" id="val-temp">--</div>
+                    <span class="sensor-unit">°C</span>
+                </div>
+                <div class="sensor-card">
+                    <div class="sensor-header"><i class="fa-solid fa-droplet"></i> Humedad</div>
+                    <div class="sensor-value" id="val-hum">--</div>
+                    <span class="sensor-unit">%</span>
+                </div>
+                <div class="sensor-card">
+                    <div class="sensor-header"><i class="fa-solid fa-wind"></i> CO2</div>
+                    <div class="sensor-value" id="val-co2">--</div>
+                    <span class="sensor-unit">ppm</span>
+                </div>
+                <div class="sensor-card">
+                    <div class="sensor-header"><i class="fa-solid fa-lungs"></i> VOC</div>
+                    <div class="sensor-value" id="val-voc">--</div>
+                    <span class="sensor-unit">Nivel</span>
+                </div>
+                <div class="sensor-card" style="grid-column: span 2;">
+                    <div class="sensor-header"><i class="fa-solid fa-volume-high"></i> Ruido Ambiental</div>
+                    <div style="display:flex; justify-content:center; align-items:baseline; gap:5px;">
+                        <div class="sensor-value" id="val-ruido">--</div>
+                        <span class="sensor-unit">dB</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="last-alert-panel" id="panel-alertas">
+                <div class="alert-header">
+                    <span><i class="fa-solid fa-bell"></i> Estado del Edificio</span>
+                    <span id="alert-time" style="font-weight:normal;">--:--</span>
+                </div>
+                <div class="alert-body" id="last-alert-msg">
+                    <span class="status-dot"></span> Sincronizando...
+                </div>
+            </div>
+
+            <div class="chat-panel">
+                <div class="chat-header">
+                    <i class="fa-solid fa-robot" style="color:var(--accent)"></i> Asistente Virtual
+                </div>
+
+                <div id="chat-messages"></div>
+
+                <div class="chat-input-row">
+                    <input id="chat-input" placeholder="Escribe aquí..." />
+                    <button id="chat-send">Enviar</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        // --- 1. CONFIGURACIÓN DEL MAPA ---
+        const lat = 40.416775; // Coordenadas de la oficina (configurable)
+        const lon = -3.703790; 
+
+        var map = L.map('map').setView([lat, lon], 17);
+
+        // Mapa Modo Claro (Light)
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+            subdomains: 'abcd',
+            maxZoom: 20
+        }).addTo(map);
+
+        var marker = L.marker([lat, lon]).addTo(map);
+        
+        marker.bindPopup(`
+            <div style="text-align:center;">
+                <h3 style="margin:0; color:#38bdf8">🏢 Oficina monitorizada</h3>
+                <p style="margin:5px 0; color:#cbd5e1;">Monitorización Planta 2</p>
+                <b style="color:#22c55e">● En línea</b>
+            </div>
+        `).openPopup();
+
+        // --- 2. LÓGICA DE DATOS (N8N) ---
+        setInterval(() => {
+            document.getElementById('reloj').innerText = new Date().toLocaleTimeString('es-ES', {hour:'2-digit', minute:'2-digit'});
+        }, 1000);
+
+        const n8nUrl = 'http://localhost:6789/webhook/estado_oficina'; 
+
+        async function actualizarDatos() {
+            try {
+                const respuesta = await fetch(n8nUrl);
+                if (!respuesta.ok) throw new Error("n8n error");
+                const datos = await respuesta.json();
+
+                // 1. Actualizar Sensores
+                if(datos.temperatura) document.getElementById('val-temp').innerText = datos.temperatura;
+                if(datos.humedad)     document.getElementById('val-hum').innerText = datos.humedad;
+                if(datos.co2)         document.getElementById('val-co2').innerText = datos.co2;
+                if(datos.gas)         document.getElementById('val-voc').innerText = datos.gas;
+                if(datos.ruido)       document.getElementById('val-ruido').innerText = datos.ruido;
+
+                // 2. Lógica de Alarmas
+                const panelAlerta = document.getElementById('panel-alertas');
+                const textoAlerta = document.getElementById('last-alert-msg');
+                const horaAlerta  = document.getElementById('alert-time');
+                const popupMap    = document.querySelector('.leaflet-popup-content-wrapper');
+
+                const listaAlertas = datos.alertas || []; 
+                const alarmaActiva = listaAlertas.find(a => a.cleared === false);
+
+                if (alarmaActiva) {
+                    const fecha = new Date(alarmaActiva.createdTime);
+                    horaAlerta.innerText = fecha.toLocaleTimeString('es-ES', {hour:'2-digit', minute:'2-digit'});
+                    textoAlerta.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> ${alarmaActiva.type}`;
+                    textoAlerta.style.color = "#f43f5e"; 
+                    panelAlerta.style.borderLeftColor = "#f43f5e";
+                    if(popupMap) popupMap.style.border = "2px solid #f43f5e";
+                } else {
+                    horaAlerta.innerText = "--:--";
+                    textoAlerta.innerHTML = `<span class="status-dot"></span> Sistema Normal`;
+                    textoAlerta.style.color = "#e2e8f0"; 
+                    panelAlerta.style.borderLeftColor = "#10b981";
+                    if(popupMap) popupMap.style.border = "1px solid #334155";
+                }
+
+            } catch (error) {
+                console.error(error);
+                document.getElementById('last-alert-msg').innerHTML = `<i class="fa-solid fa-wifi" style="color:orange"></i> Reconectando...`;
+            }
+        }
+
+        setInterval(actualizarDatos, 2000);
+        actualizarDatos();
+
+        // ================= CHAT =================
+        const chatUrl = 'http://localhost:6789/webhook/chat_oficina2';
+
+        function addMsg(role, text) {
+            const chat = document.getElementById('chat-messages');
+            if (!chat) return;
+
+            // Asegurar que siempre sea TEXTO
+            let safeText = text;
+            if (safeText === undefined || safeText === null) safeText = '';
+            if (typeof safeText !== 'string') safeText = JSON.stringify(safeText, null, 2);
+
+            const msg = document.createElement('div');
+            msg.className = 'chat-msg ' + role;
+
+            // IMPORTANTE: textContent (no innerHTML)
+            msg.textContent = safeText;
+
+            chat.appendChild(msg);
+            chat.scrollTop = chat.scrollHeight;
+        }
+
+
+        async function sendChat() {
+            const input = document.getElementById('chat-input');
+            const text = (input.value || '').trim();
+            if (!text) return;
+
+            addMsg('user', text);
+            input.value = '';
+
+            try {
+                const r = await fetch(chatUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: text })
+                });
+
+                const raw = await r.text();
+
+                let data;
+                try { data = JSON.parse(raw); } 
+                catch { data = { answer: raw }; }
+
+                const botAnswer =
+                    (typeof data.answer === 'string') ? data.answer :
+                    (typeof data.text === 'string') ? data.text :
+                    (typeof data.output === 'string') ? data.output :
+                    JSON.stringify(data.answer ?? data, null, 2);
+
+                addMsg('bot', botAnswer || 'Sin respuesta');
+
+            } catch (err) {
+                console.error(err);
+                addMsg('bot', '❌ Error conectando con el asistente.');
+            }
+        }
+
+        // Botón enviar
+        document.getElementById('chat-send').addEventListener('click', sendChat);
+
+        // Enter para enviar
+        document.getElementById('chat-input').addEventListener('keydown', e => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                sendChat();
+            }
+        });
+
+        // Mensaje inicial opcional
+        addMsg('bot', 'Hola 👋 Pregúntame por el estado o por cualquier sensor.');
+    </script>
+</body>
+</html>

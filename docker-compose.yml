@@ -1,0 +1,102 @@
+services:
+
+  thingsboard:
+    image: thingsboard/tb-postgres
+    container_name: servidortb
+    restart: always
+    ports:
+      - "8080:9090"   # UI + API REST
+      - "1883:1883"   # MQTT
+      - "5433:5432"
+    environment:
+      - TB_QUEUE_TYPE=in-memory
+    networks:
+      - dt-net
+    volumes:
+      - ./tb-data:/data
+      - ./tb-logs:/var/log/thingsboard
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: dt-qdrant
+    restart: unless-stopped
+    networks:
+      - dt-net
+    ports:
+      - "7333:6333"   # HTTP API
+      - "7334:6334"   # gRPC
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:6333/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  db:
+    image: postgres:17
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+      timeout: 10s
+    volumes:
+      - app-db-data:/var/lib/postgresql/data/pgdata
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    environment:
+      - PGDATA=/var/lib/postgresql/data/pgdata
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_DB=${POSTGRES_DB}
+    networks:
+      - dt-net
+
+  adminer:
+    image: adminer
+    restart: always
+    networks:
+      - dt-net
+    depends_on:
+      - db
+    environment:
+      - ADMINER_DESIGN=pepa-linha-dark
+      - ADMINER_DEFAULT_SERVER=db
+
+  n8n:
+    image: n8nio/n8n
+    container_name: n8n
+    ports:
+      - "6789:5678"
+    networks:
+      - dt-net
+    environment:
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - N8N_EDITOR_BASE_URL=http://localhost:6789
+      - WEBHOOK_URL=http://localhost:6789
+      - NODE_FUNCTION_ALLOW_EXTERNAL=*
+      - N8N_SKIP_WEBHOOK_DEREGISTRATION_SHUTDOWN=true
+      - N8N_SECURE_COOKIE=false
+      - N8N_ALLOWED_ORIGINS=localhost:5678,localhost,127.0.0.1:5678,127.0.0.1
+      - QDRANT_URL=http://qdrant:6333
+      - QDRANT_GRPC_URL=http://qdrant:6334
+    volumes:
+      - n8n_data:/home/node/.n8n
+    restart: unless-stopped
+    depends_on:
+      qdrant:
+        condition: service_started
+      db:
+        condition: service_healthy
+
+networks:
+  dt-net:
+    driver: bridge
+
+volumes:
+  n8n_data:
+  app-db-data:
+  qdrant_storage:

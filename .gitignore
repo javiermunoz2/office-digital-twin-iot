@@ -1,0 +1,26 @@
+# Credenciales
+.env
+firmware/main/config.h
+*.pem
+*.key
+
+# Datos de ejecucion de los contenedores (bases de datos, logs)
+tb-data/
+tb-logs/
+ml-data/
+mosquitto/data/
+mosquitto/log/
+
+# Python
+__pycache__/
+venv/
+.venv/
+.ipynb_checkpoints/
+
+# KiCad
+*-backups/
+_autosave-*
+\#auto_saved_files\#
+fp-info-cache
+*.kicad_prl
+*.lck
